@@ -9,6 +9,7 @@ pgstep runs a real PostgreSQL 18 engine ([PGlite](https://github.com/electric-sq
 - **Execution order, step by step:** `WITH` → `FROM` → each `JOIN` → `WHERE` → `GROUP BY` → `HAVING` → `SELECT` → `DISTINCT` → `ORDER BY` → `LIMIT / OFFSET / FETCH` → result.
 - **Visual cues:** filtered rows struck out, rows color-banded by group, outer-join rows padded with `NULL` marked, row counts per stage.
 - **Your own schema:** any `CREATE TABLE` / `INSERT` script, real Postgres semantics, functions and error messages.
+- **SQL editors:** syntax highlighting for keywords, functions, types, strings, numbers and comments, in light and dark mode.
 - **Data changes:** `INSERT`, `UPDATE`, `DELETE`, `MERGE` show before/after with new and changed rows highlighted; `ALTER`, `CREATE` and `DROP` show the structure before and after.
 - **Set operations:** each `UNION` / `INTERSECT` / `EXCEPT` branch, then the combined result.
 - **Playback:** animated stages with Play, Previous / Next, keyboard arrows and adjustable speed.

@@ -66,6 +66,20 @@ main{padding:0 clamp(14px,3vw,32px) 40px;display:grid;gap:18px}
 .pane-head .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 textarea{display:block;width:100%;min-height:270px;resize:vertical;border:0;background:transparent;padding:14px 16px;font:13.5px/1.6 var(--mono);tab-size:2;white-space:pre;overflow:auto}
 textarea:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--accent-soft)}
+:root{--hl-kw:#2D5F8F;--hl-str:#1D7650;--hl-num:#B0581C;--hl-com:#7D8B99;--hl-fn:#7A4FA8;--hl-type:#24808F;--hl-op:#6A7887}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--hl-kw:#7FB1E3;--hl-str:#7FD1A4;--hl-num:#E89A62;--hl-com:#728194;--hl-fn:#C3A6EE;--hl-type:#5FC3D2;--hl-op:#94A3B3}}
+:root[data-theme="dark"]{--hl-kw:#7FB1E3;--hl-str:#7FD1A4;--hl-num:#E89A62;--hl-com:#728194;--hl-fn:#C3A6EE;--hl-type:#5FC3D2;--hl-op:#94A3B3}
+.editor{position:relative;flex:1;display:flex;flex-direction:column;min-height:0}
+.editor textarea{position:relative;z-index:1;color:transparent;caret-color:var(--ink);background:transparent;flex:1}
+.editor textarea::selection{background:var(--mark);color:transparent}
+.hl{position:absolute;inset:0;margin:0;padding:14px 16px;font:13.5px/1.6 var(--mono);tab-size:2;white-space:pre;overflow:hidden;pointer-events:none;color:var(--ink);border:0}
+.hl .k{color:var(--hl-kw);font-weight:600}
+.hl .s{color:var(--hl-str)}
+.hl .n{color:var(--hl-num)}
+.hl .c{color:var(--hl-com);font-style:italic}
+.hl .f{color:var(--hl-fn)}
+.hl .t{color:var(--hl-type)}
+.hl .o{color:var(--hl-op)}
 .btn{border:1px solid var(--line);background:var(--soft);border-radius:7px;padding:6px 12px;font-size:14px;cursor:pointer;white-space:nowrap}
 .btn:hover:not(:disabled){border-color:var(--accent)}
 .btn:disabled{opacity:.5;cursor:default}
@@ -195,14 +209,14 @@ tr[class*="g-"]:not(.ghead):not(.removed) td{background:color-mix(in srgb,var(--
           <button class="btn" id="applyBtn" type="button" disabled>Load schema</button>
         </div>
       </div>
-      <textarea id="schema" spellcheck="false" aria-label="Schema and data SQL"></textarea>
+      <div class="editor"><pre class="hl" aria-hidden="true"></pre><textarea id="schema" spellcheck="false" aria-label="Schema and data SQL"></textarea></div>
       <div class="foot" id="tablesFoot"><span class="msg">Tables appear here once the schema loads.</span></div>
     </div>
     <div class="pane">
       <div class="pane-head">
         <h2>Query</h2>
       </div>
-      <textarea id="query" spellcheck="false" aria-label="Query to visualize"></textarea>
+      <div class="editor"><pre class="hl" aria-hidden="true"></pre><textarea id="query" spellcheck="false" aria-label="Query to visualize"></textarea></div>
       <div class="foot">
         <button class="btn primary" id="runBtn" type="button" disabled>Run and step through</button>
         <span class="hint">Ctrl + Enter</span>
@@ -615,6 +629,7 @@ async function applySchema(){
   if(!db || busy) return false;
   busy = true; $('#applyBtn').disabled = true; $('#runBtn').disabled = true;
   const foot = $('#tablesFoot');
+  syncHl();
   const text = $('#schema').value; store.set('qs.schema', text);
   let ok = true;
   try{
@@ -1060,6 +1075,7 @@ let speed = Number(store.get('qs.speed')) || 1;
 async function run(){
   if(!db || busy) return;
   busy = true; $('#runBtn').disabled = true; $('#applyBtn').disabled = true; stopPlay();
+  syncHl();
   const text = $('#query').value; store.set('qs.query', text);
   const all = splitStatements(text);
   const tx = /^\s*(BEGIN|COMMIT|ROLLBACK|START\s+TRANSACTION|END|SAVEPOINT|RELEASE|ABORT)\b/i;
@@ -1213,6 +1229,37 @@ function togglePlay(){
 const schemaEl = $('#schema'), queryEl = $('#query');
 schemaEl.value = store.get('qs.schema') ?? SAMPLE_SCHEMA;
 queryEl.value = store.get('qs.query') ?? EXAMPLES[0][1];
+
+/* ---------- syntax highlighting ---------- */
+const HL_KW = new Set(('select from where group by having order limit offset fetch first next rows row only with ties join inner left right full outer cross natural on using as and or not in is null true false like ilike similar between exists case when then else end distinct all any some union intersect except insert into values update set delete returning create table view index unique primary key foreign references default check constraint alter add column drop rename to cascade restrict if begin commit rollback over partition window asc desc nulls last lateral recursive materialized truncate merge matched do nothing conflict sequence schema grant revoke filter within collate type enum extension function returns language replace temp temporary unlogged generated always identity stored zone at cast array interval').split(' '));
+const HL_TY = new Set(('int int2 int4 int8 integer bigint smallint serial bigserial smallserial numeric decimal real double precision float float4 float8 text varchar char character varying boolean bool date time timestamp timestamptz timetz uuid json jsonb bytea money inet cidr macaddr xml tsvector point').split(' '));
+const HL_RE = /(--[^\n]*|\/\*[\s\S]*?(?:\*\/|$))|([eE]?'(?:[^']|'')*'?)|(\$([A-Za-z_]\w*)?\$[\s\S]*?(?:\$\4\$|$))|("(?:[^"]|"")*"?)|(\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b)|([A-Za-z_][\w$]*)(?=\()|([A-Za-z_][\w$]*)|(::|[<>=!]+|[-+*\/%|])/g;
+function highlightSql(t){
+  let out = '', last = 0, m;
+  HL_RE.lastIndex = 0;
+  while((m = HL_RE.exec(t))){
+    if(m[0] === ''){ HL_RE.lastIndex++; continue; }
+    out += esc(t.slice(last, m.index));
+    let cls = '';
+    if(m[1]) cls = 'c';
+    else if(m[2] || m[3]) cls = 's';
+    else if(m[6]) cls = 'n';
+    else if(m[7]){ const w = m[7].toLowerCase(); cls = HL_KW.has(w) ? 'k' : HL_TY.has(w) ? 't' : 'f'; }
+    else if(m[8]){ const w = m[8].toLowerCase(); cls = HL_KW.has(w) ? 'k' : HL_TY.has(w) ? 't' : ''; }
+    else if(m[9]) cls = 'o';
+    out += cls ? `<span class="${cls}">${esc(m[0])}</span>` : esc(m[0]);
+    last = m.index + m[0].length;
+  }
+  return out + esc(t.slice(last)) + '\n';
+}
+const hlPairs = [[schemaEl, schemaEl.previousElementSibling], [queryEl, queryEl.previousElementSibling]];
+function paintHl(ta, pre){ pre.innerHTML = highlightSql(ta.value); pre.scrollTop = ta.scrollTop; pre.scrollLeft = ta.scrollLeft; }
+function syncHl(){ for(const [ta, pre] of hlPairs) paintHl(ta, pre); }
+for(const [ta, pre] of hlPairs){
+  ta.addEventListener('input', () => paintHl(ta, pre));
+  ta.addEventListener('scroll', () => { pre.scrollTop = ta.scrollTop; pre.scrollLeft = ta.scrollLeft; });
+}
+syncHl();
 $('#runBtn').addEventListener('click', run);
 $('#applyBtn').addEventListener('click', async () => { if(await applySchema()) run(); });
 $('#resetSchema').addEventListener('click', async () => { schemaEl.value = SAMPLE_SCHEMA; if(db && await applySchema()) run(); });
@@ -1231,6 +1278,7 @@ for(const el of [schemaEl, queryEl]){
     else if(e.key === 'Tab' && !e.shiftKey && !e.altKey){
       e.preventDefault(); const s = el.selectionStart, en = el.selectionEnd;
       el.setRangeText('  ', s, en, 'end');
+      el.dispatchEvent(new Event('input'));
     }
   });
   el.addEventListener('input', () => store.set(el === queryEl ? 'qs.query' : 'qs.schema', el.value));
