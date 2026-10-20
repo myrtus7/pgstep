@@ -1,8 +1,8 @@
-# pgstep
+# PgStep
 
 Step through PostgreSQL query execution clause by clause, on your own schema, entirely in the browser.
 
-pgstep runs a real PostgreSQL 18 engine ([PGlite](https://github.com/electric-sql/pglite), compiled to WebAssembly) inside a single HTML page. Paste your tables and data, write a query, and watch the intermediate table at each stage of execution. No server, no install, no sign-up.
+PgStep runs a real PostgreSQL 18 engine ([PGlite](https://github.com/electric-sql/pglite), compiled to WebAssembly) inside a single HTML page. Paste your tables and data, write a query, and watch the intermediate table at each stage of execution. No server, no install, no sign-up.
 
 ## Features
 
